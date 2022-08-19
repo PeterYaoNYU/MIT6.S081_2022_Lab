@@ -193,6 +193,13 @@ UPROGS=\
 	$U/_grind\
 	$U/_wc\
 	$U/_zombie\
+	$U/_pingpong\
+	$U/_find\
+	$U/_sleep\
+	$U/_trace\
+	$U/_xargs\
+	$U/_sysinfotest\
+
 
 
 

@@ -141,8 +141,31 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->syscall_trace =0;
+
+
   return p;
 }
+
+
+uint64
+count_proc_not_unused(void)
+{
+  struct proc *p;
+  uint64 proc_not_unused = 0;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED) {
+      proc_not_unused ++;
+    }
+
+    release(&p->lock);
+    }
+
+  return proc_not_unused;
+}
+
 
 // free a proc structure and the data hanging from it,
 // including user pages.
@@ -314,6 +337,8 @@ fork(void)
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
+
+  np->syscall_trace = p->syscall_trace;
 
   return pid;
 }
