@@ -275,10 +275,47 @@ freewalk(pagetable_t pagetable)
       freewalk((pagetable_t)child);
       pagetable[i] = 0;
     } else if(pte & PTE_V){
-      panic("freewalk: leaf");
+      panic("freewalk: leaf ahhh");
     }
   }
   kfree((void*)pagetable);
+}
+
+//print out the process page table layout
+// two functions working together!
+void
+vmprint_helper(pagetable_t pagetable, int level)
+{
+  // there are 2^9 = 512 PTEs in a page table.
+  if (level == 1){
+    printf("page table %p\n", pagetable);
+  }
+
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      // this PTE points to a lower-level page table.
+      if (level == 1){
+        printf("..");
+      } else if (level ==2){
+        printf(".. ..");
+      }
+
+      printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+      uint64 child = PTE2PA(pte);
+      vmprint_helper((pagetable_t)child, level+1);
+    } else if(pte & PTE_V){
+      printf(".. .. ..%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+    }
+  }
+  return;
+}
+
+void
+vmprint(pagetable_t pagetable)
+{
+  vmprint_helper(pagetable, 1);
+  return;
 }
 
 // Free user memory pages,

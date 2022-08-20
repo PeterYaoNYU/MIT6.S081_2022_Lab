@@ -81,7 +81,25 @@ int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
-  return 0;
+  pagetable_t starting_va;
+  int page_num;
+  uint64 buffer_addr;
+
+  if (argaddr(0, (uint64 *) &starting_va) < 0){
+    return -1;
+  }
+
+  if (argint(1, &page_num) < 0){
+    return -1;
+  }
+
+  if (argaddr(2, &buffer_addr) <0){
+    return -1;
+  }
+
+  return pgaccess((void*)starting_va, page_num, buffer_addr);
+
+  // return 0;
 }
 #endif
 

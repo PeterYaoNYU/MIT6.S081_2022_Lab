@@ -127,6 +127,15 @@ found:
     return 0;
   }
 
+  // Allocate a ugetpid page
+  if ((p->usyscall = (struct usyscall *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+  p->usyscall->pid = p->pid;
+
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -152,6 +161,11 @@ freeproc(struct proc *p)
 {
   if(p->trapframe)
     kfree((void*)p->trapframe);
+
+  if (p->usyscall)
+    kfree((void*)p->usyscall);
+
+
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
@@ -196,6 +210,13 @@ proc_pagetable(struct proc *p)
     return 0;
   }
 
+  if (mappages(pagetable, USYSCALL, PGSIZE, (uint64)(p->usyscall), PTE_R | PTE_U) < 0) {
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);
+    uvmfree(pagetable, 0);
+    return 0;
+  }
+
   return pagetable;
 }
 
@@ -206,6 +227,7 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  uvmunmap(pagetable, USYSCALL, 1, 0);
   uvmfree(pagetable, sz);
 }
 
@@ -653,4 +675,36 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int pgaccess(void * starting_va, int page_num, uint64 buffer_addr)
+{
+  int ans = 0;
+  struct proc *p = myproc();
+  if (p==0)
+    return 1;
+  
+  pagetable_t pagetable = p->pagetable;
+  pte_t * pte;
+
+  for (int i=0; i<page_num; i++){
+    pte = walk(pagetable, (uint64)starting_va, 0);
+    starting_va+=PGSIZE;
+    if (pte == 0){
+      ans = (ans << 1);
+      // *pte ^= PTE_A;
+      // continue;
+    }else if (PTE_A & (*pte)){
+      ans = ans | (1<<i);
+      *pte ^= PTE_A;
+    } 
+
+      // continue;
+    // } else {
+      // pte = pte ^ PTE_A;
+    // }
+  }
+
+  return copyout(pagetable, buffer_addr, (char *)&ans, sizeof(int));
+
 }
