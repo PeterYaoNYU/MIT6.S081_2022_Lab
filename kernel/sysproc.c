@@ -70,6 +70,7 @@ sys_sleep(void)
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+  backtrace();
   return 0;
 }
 
@@ -94,4 +95,21 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_sigreturn(void)
+{
+  return sigreturn();
+}
+
+uint64
+sys_sigalarm(void)
+{
+  uint64 handler;
+  int ticks;
+  argint(0, &ticks);
+  argaddr(1, &handler);
+  // sigalarm(ticks, (void*)handler);
+  return sigalarm(ticks, (void (*)())handler);
 }
