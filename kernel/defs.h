@@ -9,6 +9,14 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+#define PA2PGREF_ID(p) (((p)-KERNBASE)/PGSIZE)
+#define PGREF_MAX_ENTRIES PA2PGREF_ID(PHYSTOP)
+
+extern int pgref_count[PGREF_MAX_ENTRIES];
+
+extern struct spinlock pg_ref_lock;
+
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -63,6 +71,8 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+int             inc_pg_ref(uint64);
+int             dec_pg_ref(uint64);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -170,6 +180,8 @@ uint64          walkaddr(pagetable_t, uint64);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
+int             checkcow(uint64);
+int             cow_copy(uint64);
 
 // plic.c
 void            plicinit(void);

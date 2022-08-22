@@ -3,8 +3,9 @@
 #include "memlayout.h"
 #include "elf.h"
 #include "riscv.h"
-#include "defs.h"
+#include "kernel/defs.h"
 #include "fs.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -297,13 +298,67 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 // physical memory.
 // returns 0 on success, -1 on failure.
 // frees any allocated pages on failure.
+
+// check if the virtual address is indeed an forked but not copied address!
+
+int checkcow(uint64 va)
+{
+  pte_t * pte;
+  struct proc *p = myproc();
+  pte = walk(p->pagetable, va, 0);
+  if ( ((*pte) & PTE_COW) && va < p->sz)
+    return 1;
+  return 0;
+}
+
+int cow_copy(uint64 va)
+{
+  pte_t * pte;
+  struct proc * p = myproc();
+  pagetable_t pagetable = p->pagetable;
+  uint64 pa;
+  char * mem;
+  uint flags;
+
+  va = PGROUNDUP(va);
+
+  // get the last level pte of the va!
+  if ((pte = walk(pagetable, va, 0)) == 0 ){
+    // panic("cow_copy: pte should exist");
+    return -1;
+  }
+
+  if((*pte & PTE_V) == 0)
+    // panic("cow_copy: page not present");
+    return -1;
+
+  pa = PTE2PA(*pte);
+  acquire(&pg_ref_lock);
+  pgref_count[PA2PGREF_ID(pa)] --;
+  release(&pg_ref_lock);
+  *pte = (*pte) & (PTE_W);
+  flags = PTE_FLAGS(*pte);
+  
+  if ((mem = kalloc()) == 0){
+    panic ("cow_copy: not enough memory to write a new page");
+  }
+
+  memmove(mem, (char *)pa, PGSIZE);
+  if(mappages(pagetable, va, PGSIZE, (uint64)mem, flags) != 0){
+      kfree(mem);
+  }
+  return 0;
+  
+}
+
+
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  // char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -311,14 +366,26 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
+
+    // increment the reference
+    acquire(&pg_ref_lock);
+    pgref_count[PA2PGREF_ID(pa)] ++;
+    release(&pg_ref_lock);
+
+    *pte = (*pte & (~PTE_W) )| PTE_COW;
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    // if((mem = kalloc()) == 0)
+    //   goto err;
+    // memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
+      // kfree(mem);
       goto err;
     }
+    pgref_count[PA2PGREF_ID(pa)] +=1;
+    // Reminder: by walking on a stride of PGSIZE
+    // i am actually traversing each entry of the last level of the
+    // entire page table for this child process!
+    // TODO: increase the reference number of pa by one!!!!
   }
   return 0;
 
@@ -347,6 +414,9 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
+
+  if (checkcow(dstva))
+    cow_copy(dstva);
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
