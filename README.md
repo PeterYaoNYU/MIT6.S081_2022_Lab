@@ -1,4 +1,4 @@
-### MIT6.S081_2022_Lab
+# MIT6.S081_2022_Lab
 
 This is my repo on MIT's undergrad intro os engineering course's LAB.
 
@@ -6,7 +6,7 @@ Basically adding different utilities to XV6, a unix-based OS.
 
 Some are verrrrry difficult (to me personally).
 
-# The main branch is empty, switch branches to see my work on the corresponding lab:)
+# The main branch is empty, checkout branches to see my work on the corresponding lab
 
 Check out the git log to see how much hair I have lost and how much despair I have encountered.
 
