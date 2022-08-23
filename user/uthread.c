@@ -1,6 +1,12 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "kernel/riscv.h"
+#include "kernel/param.h"
+#include "kernel/spinlock.h"
+// #include "kernel/memlayout.h"
+#include "kernel/proc.h"
+
 
 /* Possible states of a thread: */
 #define FREE        0x0
@@ -14,10 +20,11 @@
 struct thread {
   char       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
+  struct context thread_context;
 };
 struct thread all_thread[MAX_THREAD];
 struct thread *current_thread;
-extern void thread_switch(uint64, uint64);
+extern void thread_switch(struct context *, struct context *);
               
 void 
 thread_init(void)
@@ -62,6 +69,7 @@ thread_schedule(void)
      * Invoke thread_switch to switch from t to next_thread:
      * thread_switch(??, ??);
      */
+    thread_switch(&t->thread_context, &next_thread->thread_context);
   } else
     next_thread = 0;
 }
@@ -76,6 +84,8 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
+  t->thread_context.ra = (uint64) func;
+  t->thread_context.sp = (uint64) (t->stack) + STACK_SIZE;
 }
 
 void 
