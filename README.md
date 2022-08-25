@@ -26,7 +26,7 @@ the work for the first util assignment can be found in the syscall branch.
 (kinda forget to commit back then, long sad story about switching the working environment to Debian Server because GDB is no-existent on M1 Mac...)
 
 
-# checklist\
+# checklist
 &#x2611; Utilities Lab(can be found in the Syscall Branch)\
 &#x2611; System Calls Lab\
 &#x2611; Page Table Lab\
